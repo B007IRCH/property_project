@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Input and Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f4f4f4; }
+        button { margin: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        .selected-property { margin-top: 20px; padding: 10px; border: 1px solid #ddd; }
+        .property-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .property-card {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px;
+            width: 300px;
+            box-shadow: 2px 2px 12px #aaa;
+        }
+    </style>
+</head>
+<body>
+    <h2>Property Input and Results</h2>
+    <form id="property-form" method="post" action="{% url 'property_view' %}" onsubmit="event.preventDefault(); fetchResults();">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+    <div id="selected-property-container"></div>
+    <div id="results-container">
+        {% if properties %}
+            <p>Total Similar Properties: {{ total_similar }}</p>
+            <p id="average-adjusted-price">Average Adjusted Sale Price: {{ average_adjusted_price }} AED</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Property</th>
+                        <th>Original Price (AED)</th>
+                        <th>Unit Size (Sqf)</th>
+                        <th>Bedrooms</th>
+                        <th>Community</th>
+                        <th>Unit</th>
+                        <th>Date</th>
+                        <th>Subtype</th>
+                        <th>Transaction Type</th>
+                        <th>Developer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in properties %}
+                    <tr class="property-row" style="display: {% if forloop.counter0 < 10 %}table-row{% else %}none{% endif %};">
+                        <td><input type="checkbox" name="selected-properties" value="{{ forloop.counter0 }}" onclick="toggleProperty({{ forloop.counter0 }})"></td>
+                        <td>{{ row.property }}</td>
+                        <td>{{ row.amountAed }}</td>
+                        <td>{{ row.sizeSqf }}</td>
+                        <td>{{ row.bedrooms }}</td>
+                        <td>{{ row.community }}</td>
+                        <td>{{ row.unit }}</td>
+                        <td>{{ row.date|date:"d/m/Y" }}</td>
+                        <td>{{ row.subtype }}</td>
+                        <td>{{ row.transactionType }}</td>
+                        <td>{{ row.developer }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if properties|length > 10 %}
+                <button id="load-more-btn" onclick="loadMore()">Load More</button>
+            {% endif %}
+        {% else %}
+            <p>No properties found matching the criteria.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let properties = [];
+        let selectedProperties = [];
+
+        function fetchResults() {
+            const form = document.getElementById('property-form');
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.error); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                properties = data.properties;
+                displayResults(data);
+            })
+            .catch(error => {
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = `<p>Error: ${error.message}</p>`;
+            });
+        }
+
+        function displayResults(data) {
+            const resultsContainer = document.getElementById('results-container');
+            if (data.properties && data.properties.length > 0) {
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th>Select</th>
+                        <th>Property</th>
+                        <th>Original Price (AED)</th>
+                        <th>Unit Size (Sqf)</th>
+                        <th>Bedrooms</th>
+                        <th>Community</th>
+                        <th>Unit</th>
+                        <th>Date</th>
+                        <th>Subtype</th>
+                        <th>Transaction Type</th>
+                        <th>Developer</th>
+                    </tr>
+                `;
+                const tbody = document.createElement('tbody');
+                data.properties.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'property-row';
+                    tr.style.display = index < rowsPerPage ? 'table-row' : 'none';
+                    tr.innerHTML = `
+                        <td><input type="checkbox" name="selected-properties" value="${index}" onclick="toggleProperty(${index})"></td>
+                        <td>${row.property || ''}</td>
+                        <td>${row.amountAed || ''}</td>
+                        <td>${row.sizeSqf || ''}</td>
+                        <td>${row.bedrooms || ''}</td>
+                        <td>${row.community || ''}</td>
+                        <td>${row.unit || ''}</td>
+                        <td>${row.date || ''}</td>
+                        <td>${row.subtype || ''}</td>
+                        <td>${row.transactionType || ''}</td>
+                        <td>${row.developer || ''}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                resultsContainer.innerHTML = `
+                    <p>Total Similar Properties: ${data.totalSimilar}</p>
+                    <p>Average Adjusted Sale Price: ${data.averageAdjustedPrice} AED</p>
+                `;
+                resultsContainer.appendChild(table);
+                if (data.properties.length > rowsPerPage) {
+                    const loadMoreBtn = document.createElement('button');
+                    loadMoreBtn.id = 'load-more-btn';
+                    loadMoreBtn.textContent = 'Load More';
+                    loadMoreBtn.onclick = loadMore;
+                    resultsContainer.appendChild(loadMoreBtn);
+                }
+            } else {
+                resultsContainer.innerHTML = '<p>No properties found matching the criteria.</p>';
+            }
+        }
+
+        function loadMore() {
+            const rows = document.querySelectorAll('.property-row');
+            const endRow = ++currentPage * rowsPerPage;
+            for (let i = (currentPage - 1) * rowsPerPage; i < endRow; i++) {
+                if (rows[i]) {
+                    rows[i].style.display = 'table-row';
+                }
+            }
+            if (endRow >= rows.length) {
+                document.getElementById('load-more-btn').style.display = 'none';
+            }
+        }
+
+        function toggleProperty(index) {
+            const property = properties[index];
+            const checkbox = document.querySelector(`input[name="selected-properties"][value="${index}"]`);
+            if (checkbox.checked) {
+                selectedProperties.push(property);
+            } else {
+                selectedProperties = selectedProperties.filter(p => p !== property);
+            }
+            displaySelectedProperties();
+            updateComparableCalculations();
+        }
+
+        function displaySelectedProperties() {
+            const selectedPropertyContainer = document.getElementById('selected-property-container');
+            selectedPropertyContainer.innerHTML = '<h3>Selected Properties</h3>';
+            const propertyContainer = document.createElement('div');
+            propertyContainer.className = 'property-container';
+            selectedProperties.forEach(property => {
+                const propertyCard = document.createElement('div');
+                propertyCard.className = 'property-card';
+                propertyCard.innerHTML = `
+                    <p><strong>Property:</strong> ${property.property}</p>
+                    <p><strong>Original Price (AED):</strong> ${property.amountAed}</p>
+                    <p><strong>Unit Size (Sqf):</strong> ${property.sizeSqf}</p>
+                    <p><strong>Bedrooms:</strong> ${property.bedrooms}</p>
+                    <p><strong>Community:</strong> ${property.community}</p>
+                    <p><strong>Unit:</strong> ${property.unit}</p>
+                    <p><strong>Date:</strong> ${property.date}</p>
+                    <p><strong>Subtype:</strong> ${property.subtype}</p>
+                    <p><strong>Transaction Type:</strong> ${property.transactionType}</p>
+                    <p><strong>Developer:</strong> ${property.developer}</p>
+                `;
+                propertyContainer.appendChild(propertyCard);
+            });
+            selectedPropertyContainer.appendChild(propertyContainer);
+        }
+
+        function updateComparableCalculations() {
+            if (selectedProperties.length === 0) {
+                document.getElementById('average-adjusted-price').innerText = 'No properties selected';
+                return;
+            }
+
+            const form = document.getElementById('property-form');
+            const formData = new FormData(form);
+            formData.append('selected_properties', JSON.stringify(selectedProperties));
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.error); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                const averageAdjustedPrice = data.averageAdjustedPrice || 'Calculation Error';
+                document.getElementById('average-adjusted-price').innerText = averageAdjustedPrice + ' AED';
+            })
+            .catch(error => {
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = `<p>Error: ${error.message}</p>`;
+            });
+        }
+    </script>
+</body>
+</html>

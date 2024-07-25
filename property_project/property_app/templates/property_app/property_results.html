@@ -1,0 +1,72 @@
+<!-- property_app/templates/property_app/property_results.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtered Properties</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f4f4f4; }
+        button { margin: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+    <script>
+        let currentPage = 1;
+        const rowsPerPage = 5;
+        const totalRows = {{ total_similar }};
+        function loadMore() {
+            currentPage++;
+            const rows = document.querySelectorAll('.property-row');
+            const endRow = currentPage * rowsPerPage;
+            for (let i = (currentPage - 1) * rowsPerPage; i < endRow; i++) {
+                if (rows[i]) {
+                    rows[i].style.display = 'table-row';
+                }
+            }
+            if (endRow >= totalRows) {
+                document.getElementById('load-more-btn').style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <h2>Filtered Properties</h2>
+    <p>Total Similar Properties: {{ total_similar }}</p>
+    <p>Average Adjusted Sale Price: {{ average_adjusted_price }} AED</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Property</th>
+                <th>Original Price (AED)</th>
+                <th>Unit Size (Sqf)</th>
+                <th>Bedrooms</th>
+                <th>Community</th>
+                <th>Unit</th>
+                <th>Date</th>
+                <th>Subtype</th>
+                <th>Transaction Type</th>
+                <th>Developer</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in properties %}
+            <tr class="property-row" style="display: {% if forloop.counter0 < 5 %}table-row{% else %}none{% endif %};">
+                <td>{{ row.Property }}</td>
+                <td>{{ row.Amount_AED }}</td>
+                <td>{{ row.Size_Sqf }}</td>
+                <td>{{ row.Bedrooms }}</td>
+                <td>{{ row.Community }}</td>
+                <td>{{ row.Unit }}</td>
+                <td>{{ row.Date|date:"d/m/Y" }}</td>
+                <td>{{ row.Subtype }}</td>
+                <td>{{ row.Transaction_Type }}</td>
+                <td>{{ row.Developer }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button id="load-more-btn" onclick="loadMore()">Load More</button>
+</body>
+</html>
